@@ -148,19 +148,27 @@ export class IdComposer {
 }
 export const idComposer = new IdComposer
 /**
- * @returns a base62-encoded id with a fixed width of 15 characters.
+ * @returns a base62-encoded id with a fixed width of 15 characters
  *
  * The 11 raw bytes are composed of:
- * • first 5 bits of the session ID hash
- * • 42 bits timestamp (uint42, milliseconds since Unix epoch)
- * • first 6 bits of the machine ID hash
- * • 14 bits of randomness
- * • last 10 bits of the machine ID hash
- * • last 11 bits of the session ID hash
+ * - 16 bits of a hashed machine ID
+ * - 16 bits of a hashed session ID
+ * - 42 bits timestamp (uint42, milliseconds since Unix epoch)
+ * - 14 bits of randomness
+ *
+ * In this order:
+ * - first 5 bits of the session ID
+ * - 42 bits timestamp
+ * - first 6 bits of the machine ID
+ * - 14 random bits
+ * - last 10 bits of the machine ID
+ * - last 11 bits of the session ID
  *
  * So the bits look like this:
+ * ```
  *    01       02       03       04       05       06       07       08       09       10       11
  * SSSSSTTT TTTTTTTT TTTTTTTT TTTTTTTT TTTTTTTT TTTTTTTM MMMMMRRR RRRRRRRR RRRMMMMM MMMMMSSS SSSSSSSS
+ * ```
  */
 const composeIdString = () => {
   return idComposer.makeString()
