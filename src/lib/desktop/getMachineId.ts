@@ -14,12 +14,7 @@ const getMacAddresses = () => {
 }
 const getMachineId = () => {
   const uniqueMacAddresses = getMacAddresses()
-  return flattenString.zero([
-    `hostname:${os.hostname()}`,
-    `platform:${process.platform}`,
-    `arch:${process.arch}`,
-    uniqueMacAddresses.length ? `mac:${uniqueMacAddresses.join(',')}` : undefined,
-  ])
+  return flattenString.zero(os.hostname(), process.platform, process.arch, uniqueMacAddresses)
 }
 
 export default getMachineId

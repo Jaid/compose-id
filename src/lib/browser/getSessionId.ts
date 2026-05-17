@@ -14,12 +14,7 @@ const getBrowserSessionId = () => {
   const origin = browserGlobal.location?.origin || ''
   const userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent
   const timeOrigin = typeof performance === 'undefined' ? '' : String(performance.timeOrigin)
-  return flattenString.zero([
-    `origin:${origin}`,
-    `userAgent:${userAgent}`,
-    `timeOrigin:${timeOrigin}`,
-    `seed:${getBrowserSessionSeed()}`,
-  ])
+  return flattenString.zero(origin, userAgent, timeOrigin, getBrowserSessionSeed())
 }
 
 export default getBrowserSessionId
