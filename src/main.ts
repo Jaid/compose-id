@@ -2,20 +2,38 @@ import getMachineId from '#src/lib/getMachineId.ts'
 import getSessionId from '#src/lib/getSessionId.ts'
 import textEncoder from '#src/lib/singleton/textEncoder.ts'
 
+const hashedIdBits = 16
 const sessionIdHeadBits = 5n
-const sessionIdHeadShift = 32 - Number(sessionIdHeadBits)
+const sessionIdHeadShift = hashedIdBits - Number(sessionIdHeadBits)
 const sessionIdTailBits = 11n
 const sessionIdTailMask = 0x7_FF
 const timestampBits = 42n
 const machineIdHeadBits = 6n
-const machineIdHeadShift = 32 - Number(machineIdHeadBits)
+const machineIdHeadShift = hashedIdBits - Number(machineIdHeadBits)
 const machineIdTailBits = 10n
 const machineIdTailMask = 0x3_FF
 const randomBits = 14n
 const rawIdBytes = 11
+const rawIdBits = BigInt(rawIdBytes * 8)
 const stringIdCharacters = 15
+const machineIdHeadMask = (1n << machineIdHeadBits) - 1n
+const sessionIdHeadMask = (1n << sessionIdHeadBits) - 1n
 const timestampMask = (1n << timestampBits) - 1n
 const randomMask = (1n << randomBits) - 1n
+const rawIdMaxExclusive = 1n << rawIdBits
+const sessionIdHeadReadShift = timestampBits + machineIdHeadBits + randomBits + machineIdTailBits + sessionIdTailBits
+const timestampReadShift = machineIdHeadBits + randomBits + machineIdTailBits + sessionIdTailBits
+const machineIdHeadReadShift = randomBits + machineIdTailBits + sessionIdTailBits
+const randomReadShift = machineIdTailBits + sessionIdTailBits
+const machineIdTailReadShift = sessionIdTailBits
+
+export type UnpackedId = {
+  machineId: number
+  random: number
+  sessionId: number
+  timestamp: number
+}
+
 export class IdComposer {
   private static readonly base62Alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
   private static readonly base62Radix = 62n
@@ -39,21 +57,63 @@ export class IdComposer {
     const randomDataView = new DataView(randomBytes.buffer, randomBytes.byteOffset, randomBytes.byteLength)
     return randomDataView.getUint16(0)
   }
-  static hashToUint32(source: string) {
+  static hashToUint16(source: string) {
     const bytes = textEncoder.encode(source)
     let hash = 0x81_1C_9D_C5
     for (const byte of bytes) {
       hash ^= byte
       hash = Math.imul(hash, 0x01_00_01_93)
     }
-    return hash >>> 0
+    hash >>>= 0
+    return (hash ^ hash >>> hashedIdBits) & 0xFF_FF
+  }
+  static unpack(id: string): UnpackedId {
+    const stringId = id.slice(-stringIdCharacters)
+    let value = 0n
+    for (const character of stringId) {
+      const digit = IdComposer.base62Alphabet.indexOf(character)
+      if (digit === -1) {
+        throw new TypeError(`Invalid base62 character: ${character}`)
+      }
+      value = value * IdComposer.base62Radix + BigInt(digit)
+    }
+    if (value >= rawIdMaxExclusive) {
+      throw new RangeError(`Expected a base62 string that fits into ${rawIdBytes} bytes`)
+    }
+    const rawId = new Uint8Array(rawIdBytes)
+    for (let index = rawId.length - 1; index >= 0; index--) {
+      rawId[index] = Number(value & 0xFFn)
+      value >>= 8n
+    }
+    return IdComposer.unpackRaw(rawId)
+  }
+  static unpackRaw(rawId: Uint8Array): UnpackedId {
+    if (rawId.length !== rawIdBytes) {
+      throw new TypeError(`Expected ${rawIdBytes} bytes`)
+    }
+    let value = 0n
+    for (const byte of rawId) {
+      value = value << 8n | BigInt(byte)
+    }
+    const sessionIdHead = Number(value >> sessionIdHeadReadShift & sessionIdHeadMask)
+    const timestamp = Number(value >> timestampReadShift & timestampMask)
+    const machineIdHead = Number(value >> machineIdHeadReadShift & machineIdHeadMask)
+    const random = Number(value >> randomReadShift & randomMask)
+    const machineIdTail = Number(value >> machineIdTailReadShift & BigInt(machineIdTailMask))
+    const sessionIdTail = Number(value & BigInt(sessionIdTailMask))
+    return {
+      machineId: machineIdHead << machineIdHeadShift | machineIdTail,
+      sessionId: sessionIdHead << sessionIdHeadShift | sessionIdTail,
+      timestamp,
+      random,
+    }
   }
   readonly machineId: number
   readonly sessionId: number
   private nextRandom: bigint
   constructor(sessionId?: string, machineId?: string) {
-    this.machineId = IdComposer.hashToUint32(machineId ?? getMachineId())
-    this.sessionId = IdComposer.hashToUint32(sessionId ?? getSessionId())
+    this.machineId = IdComposer.hashToUint16(machineId ?? getMachineId())
+    this.sessionId = IdComposer.hashToUint16(sessionId ?? getSessionId())
     this.nextRandom = BigInt(IdComposer.getRandomUint16()) & randomMask
   }
   make() {
@@ -91,17 +151,17 @@ export const idComposer = new IdComposer
  * @returns a base62-encoded id with a fixed width of 15 characters.
  *
  * The 11 raw bytes are composed of:
- * • first 5 bits of the session ID blob
+ * • first 5 bits of the session ID hash
  * • 42 bits timestamp (uint42, milliseconds since Unix epoch)
- * • first 6 bits of the machine ID blob
- * • 14 bits of random data
- * • last 10 bits of the machine ID blob
- * • last 11 bits of the session ID blob
+ * • first 6 bits of the machine ID hash
+ * • 14 bits of randomness
+ * • last 10 bits of the machine ID hash
+ * • last 11 bits of the session ID hash
  *
  * So the bits look like this:
  *    01       02       03       04       05       06       07       08       09       10       11
  * SSSSSTTT TTTTTTTT TTTTTTTT TTTTTTTT TTTTTTTT TTTTTTTM MMMMMRRR RRRRRRRR RRRMMMMM MMMMMSSS SSSSSSSS
-*/
+ */
 const composeIdString = () => {
   return idComposer.makeString()
 }
