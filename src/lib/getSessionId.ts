@@ -2,7 +2,7 @@ import getBrowserSessionId from '#src/lib/browser/getSessionId.ts'
 import getDesktopSessionId from '#src/lib/desktop/getSessionId.ts'
 
 const getSessionId = () => {
-  const override = typeof process === 'undefined' ? undefined :process.env.SESSION_ID
+  const override = typeof process === 'undefined' ? undefined : process.env.SESSION_ID
   if (override) {
     return override
   }
