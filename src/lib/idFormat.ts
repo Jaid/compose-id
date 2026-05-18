@@ -1,0 +1,12 @@
+export const hashedIdBits = 16
+export const hashedIdBitsBigint = BigInt(hashedIdBits)
+export const hashedIdMask = 0xFF_FF
+export const hashedIdMaskBigint = BigInt(hashedIdMask)
+export const timestampBits = 42n
+export const randomBits = 14n
+export const rawIdBytes = 11
+export const rawIdBits = BigInt(rawIdBytes * 8)
+export const rawIdMaxExclusive = 1n << rawIdBits
+export const stringIdCharacters = 15
+export const timestampMask = (1n << timestampBits) - 1n
+export const randomMask = (1n << randomBits) - 1n
