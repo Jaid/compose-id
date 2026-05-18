@@ -13,15 +13,9 @@ export const encodeBase62 = (value: bigint) => {
 }
 
 export const decodeBase62 = (id: string) => {
-  if (id.length !== stringIdCharacters) {
-    throw new TypeError(`Expected ${stringIdCharacters} characters`)
-  }
   let value = 0n
   for (const character of id) {
     const digit = alphabet.indexOf(character)
-    if (digit === -1) {
-      throw new TypeError(`Invalid base62 character: ${character}`)
-    }
     value = value * radix + BigInt(digit)
   }
   return value

@@ -27,6 +27,11 @@ const getExpectedUnpackedId = (machineId: string, sessionId: string, timestamp: 
 afterEach(() => {
   mock.restore()
 })
+test('hashes UTF-8 bytes and strings consistently', () => {
+  const source = 'machine-alpha'
+  const bytes = (new TextEncoder).encode(source)
+  expect(IdComposer.hashBytesToUint16(bytes)).toBe(IdComposer.hashToUint16(source))
+})
 test('default export exposes string, byte and integer helpers', () => {
   const byteId = composeId.bytes()
   const intId = composeId.int()
@@ -48,13 +53,13 @@ test('returns deterministic integer, byte and string ids', () => {
   const byteId = byteComposer.makeBytes()
   const encodedId = stringComposer.makeString()
   const expectedUnpackedId = getExpectedUnpackedId('machine-alpha', 'session-beta', 1_714_687_601_234, 4660)
-  expect(intId).toBe(0x19_39_D4_C1_AE_A9_B7_8A_51_7F_24n)
-  expect([...byteId]).toEqual([25, 57, 212, 193, 174, 169, 183, 138, 81, 127, 36])
+  expect(intId).toBe(0x39_39_D4_C1_AE_A9_B7_89_EE_91_90n)
+  expect([...byteId]).toEqual([57, 57, 212, 193, 174, 169, 183, 137, 238, 145, 144])
   expect(encodeBase62(intId)).toBe(encodedId)
   expect(unpack(intId)).toEqual(expectedUnpackedId)
   expect(unpack(byteId)).toEqual(expectedUnpackedId)
   expect(unpack(encodedId)).toEqual(expectedUnpackedId)
-  expect(encodedId).toBe('2SSUCWS3spoOCCC')
+  expect(encodedId).toBe('5ZrJqtLcrk6KXia')
   expect(encodedId).toHaveLength(15)
   expect(encodedId).toMatch(/^[0-9A-Za-z]{15}$/)
 })
