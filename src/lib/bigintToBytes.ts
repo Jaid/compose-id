@@ -1,6 +1,4 @@
-import {rawIdBits, rawIdBytes} from '#src/lib/idFormat.ts'
-
-export const rawIdMaxExclusive = 1n << rawIdBits
+import {rawIdBytes} from '#src/lib/idFormat.ts'
 
 /**
  * @param value a BigInt that represents 11 bytes of data

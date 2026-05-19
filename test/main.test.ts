@@ -1,7 +1,9 @@
 import {afterEach, expect, mock, spyOn, test} from 'bun:test'
 
 import {encodeBase62} from '../src/base62.ts'
-import composeId, {IdComposer} from '../src/main.ts'
+import HybridIdComposer from '../src/lib/composer/HybridIdComposer.ts'
+import {hashStringToUint16, hashToUint16} from '../src/lib/hash.ts'
+import composeId from '../src/main.ts'
 import unpack from '../src/unpack.ts'
 
 const mockRandomValues = (...values: Array<Array<number>>) => {
@@ -13,13 +15,13 @@ const mockRandomValues = (...values: Array<Array<number>>) => {
     return typedArray
   })
 }
-const createComposer = (sessionId = 'session-beta', machineId = 'machine-alpha') => {
-  return new IdComposer(sessionId, machineId)
+const createComposer = (machineId = 'machine-alpha', sessionId = 'session-beta') => {
+  return new HybridIdComposer(machineId, sessionId)
 }
 const getExpectedUnpackedId = (machineId: string, sessionId: string, timestamp: number, random: number) => {
   return {
-    machineId: IdComposer.hashToUint16(machineId),
-    sessionId: IdComposer.hashToUint16(sessionId),
+    machineId: hashStringToUint16(machineId),
+    sessionId: hashStringToUint16(sessionId),
     timestamp,
     random,
   }
@@ -30,7 +32,7 @@ afterEach(() => {
 test('hashes UTF-8 bytes and strings consistently', () => {
   const source = 'machine-alpha'
   const bytes = (new TextEncoder).encode(source)
-  expect(IdComposer.hashBytesToUint16(bytes)).toBe(IdComposer.hashToUint16(source))
+  expect(hashToUint16(bytes)).toBe(hashStringToUint16(source))
 })
 test('default export exposes string, byte and integer helpers', () => {
   const byteId = composeId.bytes()
@@ -69,8 +71,8 @@ test('preserves the session hash through raw obfuscation', () => {
   const secondSessionId = 'session-gamma'
   spyOn(Date, 'now').mockImplementation(() => 1_714_687_601_234)
   mockRandomValues([0x00, 0x00], [0x00, 0x00])
-  const firstUnpackedId = unpack(createComposer(firstSessionId, machineId).make())
-  const secondUnpackedId = unpack(createComposer(secondSessionId, machineId).make())
+  const firstUnpackedId = unpack(createComposer(machineId, firstSessionId).make())
+  const secondUnpackedId = unpack(createComposer(machineId, secondSessionId).make())
   expect(firstUnpackedId).toEqual(getExpectedUnpackedId(machineId, firstSessionId, 1_714_687_601_234, 0))
   expect(secondUnpackedId).toEqual(getExpectedUnpackedId(machineId, secondSessionId, 1_714_687_601_234, 0))
   expect(secondUnpackedId.sessionId).not.toBe(firstUnpackedId.sessionId)
@@ -84,8 +86,8 @@ test('preserves the machine hash through raw obfuscation', () => {
   const sessionId = 'session-beta'
   spyOn(Date, 'now').mockImplementation(() => 1_714_687_601_234)
   mockRandomValues([0x00, 0x00], [0x00, 0x00])
-  const firstUnpackedId = unpack(createComposer(sessionId, firstMachineId).make())
-  const secondUnpackedId = unpack(createComposer(sessionId, secondMachineId).make())
+  const firstUnpackedId = unpack(createComposer(firstMachineId, sessionId).make())
+  const secondUnpackedId = unpack(createComposer(secondMachineId, sessionId).make())
   expect(firstUnpackedId).toEqual(getExpectedUnpackedId(firstMachineId, sessionId, 1_714_687_601_234, 0))
   expect(secondUnpackedId).toEqual(getExpectedUnpackedId(secondMachineId, sessionId, 1_714_687_601_234, 0))
   expect(secondUnpackedId.machineId).not.toBe(firstUnpackedId.machineId)
@@ -133,10 +135,12 @@ test('uses only the lower 14 bits of the initial random seed', () => {
   const highBitRandomId = createComposer().make()
   expect(highBitRandomId).toBe(lowRandomId)
 })
+test('treats shortened base62 strings like left-padded ids', () => {
+  expect(unpack('short')).toEqual(unpack('0000000000short'))
+})
 test('rejects invalid unpack inputs', () => {
   expect(() => unpack(Uint8Array.of(1, 2, 3))).toThrow('Expected 11 bytes')
-  expect(() => unpack('short')).toThrow('Expected 15 characters')
-  expect(() => unpack('00000000000000_')).toThrow('Invalid base62 character')
+  expect(() => unpack('00000000000000_')).toThrow('Expected a bigint that fits into 11 bytes')
   expect(() => unpack('zzzzzzzzzzzzzzz')).toThrow('Expected a bigint that fits into 11 bytes')
   expect(() => unpack(-1n)).toThrow('Expected a bigint that fits into 11 bytes')
   expect(() => unpack(1n << 88n)).toThrow('Expected a bigint that fits into 11 bytes')

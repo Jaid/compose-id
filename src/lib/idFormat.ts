@@ -9,3 +9,4 @@ export const rawIdBits = BigInt(rawIdBytes * 8)
 export const stringIdCharacters = 15
 export const timestampMask = (1n << timestampBits) - 1n
 export const randomMask = (1n << randomBits) - 1n
+export const rawIdMaxExclusive = 1n << rawIdBits
