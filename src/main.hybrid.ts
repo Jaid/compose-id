@@ -1,4 +1,4 @@
-import IdComposer from '#src/lib/composer/AgnosticIdComposer.ts'
+import IdComposer from '#src/lib/composer/HybridIdComposer.ts'
 
 export const idComposer = new IdComposer
 /**

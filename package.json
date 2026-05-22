@@ -15,6 +15,9 @@
     "./unpack": {
       "default": "./src/unpack.ts"
     },
+    "./hybrid": {
+      "default": "./src/main.hybrid.ts"
+    },
     "./browser": {
       "default": "./src/main.browser.ts"
     },
